@@ -18,6 +18,7 @@ namespace autotagger
         {
             Console.WriteLine("Usages:");
             Console.WriteLine("autotagger parse [term]");
+            Console.WriteLine("autotagger learn [word] [tag]");
             Console.WriteLine("autotagger tags - show existing tags");
         }
 
@@ -33,6 +34,17 @@ namespace autotagger
 
             string term = string.Join(" ", _args.Select(_s => _s.ToString()));
 
+        }
+
+        private void Learn(string[] _args)
+        {
+            if (_args.Length < 0)
+            {
+                Console.WriteLine("Usage:");
+                Console.WriteLine("autotagger learn [word] [tag]");
+                Console.WriteLine("Associate word with tag");
+                return;
+            }
         }
 
         private void ShowTags()
@@ -51,6 +63,9 @@ namespace autotagger
         {
             switch (_mode)
             {
+                case "learn":
+                    Learn(_args);
+                    break;
                 case "parse":
                     Parse(_args);
                     break;
