@@ -110,6 +110,7 @@ _TeamCity*
 
 # NCrunch
 _NCrunch_*
+*.ncrunch*
 .*crunch*.local.xml
 nCrunchTemp_*
 
@@ -243,3 +244,7 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+
+*.xlsx
+*.csv
+/autotagger/autotagger/.~lock.loan.csv#

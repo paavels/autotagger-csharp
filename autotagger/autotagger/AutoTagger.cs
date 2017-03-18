@@ -1,90 +1,218 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace autotagger
 {
+    /*
+     * loan_amnt
+
+purpose
+car
+credit_card
+debt_consolidation
+home_improvement
+house
+major_purchase
+medical
+moving
+other
+small_business
+vacation
+wedding
+
+term
+ 36 months
+
+
+grade
+A-G
+
+sub_grade
+A1-A5 B1-B5...
+
+emp_length
+10+ years
+< 1 year
+10+ years
+10+ years
+1 year
+3 years
+8 years
+9 years
+4 years
+
+
+
+home_ownership
+
+RENT, OWN, MORTGAGE, OTHER.
+
+annual_inc
+
+loan_status
+
+Current
+Fully Paid
+Charged Off
+Default
+
+     */
+
+
+    public enum ExpressionType
+    {
+        Inclusive,
+        Exclusive,
+        Undefined
+    }
+
+    public class Expression
+    {
+        public int fieldIdx = -1;
+        public string fieldName = "";
+        public ExpressionType type = ExpressionType.Undefined;
+    }
+
+    public class Rule
+    {
+        public string name = "";
+        public List<Expression> expressions = new List<Expression>();
+    }
+
     public class AutoTagger
     {
-        private TagManager tagManager;
+        private List<Rule> rules = new List<Rule>();
 
-        public AutoTagger()
+        private List<Expression> parseExpression(string s)
         {
-            tagManager = new TagManager();
-            Console.WriteLine("Tags read");
-        }
 
-        private void PrintHelp()
-        {
-            Console.WriteLine("Usages:");
-            Console.WriteLine("autotagger parse [term]");
-            Console.WriteLine("autotagger learn [word] [tag]");
-            Console.WriteLine("autotagger tags - show existing tags");
-        }
+            var t = s.Split('\t');
 
-        private void Parse(string[] _args)
-        {
-            if (_args.Length == 0)
+            if (t.Length < 3)
             {
-                Console.WriteLine("Usage:");
-                Console.WriteLine("autotagger parse [term]");
-                Console.WriteLine("Where term is you want to autotag");
-                return;
+                Console.WriteLine("Invalid expression for line '{0}'", s);
+                Console.WriteLine("Expected format: field keyword value, [value2, value3, ...]");
+                return null;
             }
 
-            string term = string.Join(" ", _args.Select(_s => _s.ToString()));
+            List<Expression> parsedExpressions = new List<Expression>();
 
-        }
+            string fieldname = t[0];
+            string keyword = t[1];
 
-        private void Learn(string[] _args)
-        {
-            if (_args.Length < 0)
+            switch (keyword)
             {
-                Console.WriteLine("Usage:");
-                Console.WriteLine("autotagger learn [word] [tag]");
-                Console.WriteLine("Associate word with tag");
-                return;
-            }
-        }
-
-        private void ShowTags()
-        {
-            List<Tag> tags = tagManager.Get();
-
-            Console.WriteLine($"Found {tags.Count} tags");
-            foreach (Tag tag in tags)
-            {
-                Console.WriteLine(tag.Get());
-            }
-        }
-
-
-        public void Run(string _mode, string[] _args)
-        {
-            switch (_mode)
-            {
-                case "learn":
-                    Learn(_args);
-                    break;
-                case "parse":
-                    Parse(_args);
-                    break;
-                case "tags":
-                    ShowTags();
-                    break;
-                default:
-                    PrintHelp();
+                case "EQUALS":
                     break;
             }
 
+            Expression e = new Expression();
+            e.fieldName = t[0];
+
+            if (keyword == "IS" || keyword == "EQUALS" || keyword == "ONE OF")
+            {
+                parsedExpressions.Add(new Expression
+                {
+                    fieldName = fieldname,
+                    type = ExpressionType.Inclusive
+                });
+            }
+            else if (keyword == "ALL EXCEPT" || keyword == "EXCLUDING")
+            {
+                parsedExpressions.Add(new Expression
+                {
+                    fieldName = fieldname,
+                    type = ExpressionType.Exclusive
+                });
+            }
+            else
+            {
+                Console.WriteLine("Invalid keyword for line '{0}'", s);
+                Console.WriteLine();
+            }
+
+            return parsedExpressions;
         }
 
-        ~AutoTagger()
+        private void readRules(string filename)
         {
-            Console.WriteLine("Saving tags");
-            tagManager.Save();
+            Console.WriteLine("Reading rules from {0}", filename);
 
-            Console.WriteLine("Application exiting");
+            StreamReader sr = new StreamReader(filename);
+            Rule def = null;
+            while (!sr.EndOfStream)
+            {
+                string s = sr.ReadLine();
+                if (string.IsNullOrWhiteSpace(s)) continue;
+
+                if (s.Contains("\t") && def != null)
+                {
+                    List<Expression> e = parseExpression(s.Replace("\t", ""));
+                    if (e != null) def.expressions.AddRange(e);
+                }
+
+                if (def != null && def.expressions.Any()) rules.Add(def);
+                def = new Rule { name = s };
+            }
+
+            if (def != null && def.expressions.Any()) rules.Add(def);
+            sr.Close();
+
+            Console.WriteLine("Rules read");
+        }
+
+        private void printRules()
+        {
+            Console.WriteLine("----------------------------------------");
+            Console.WriteLine("\t\tRULES");
+            Console.WriteLine("----------------------------------------");
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                Rule rule = rules[i];
+
+                Console.WriteLine("{0}. {1}", i + 1, rule.name);
+                foreach (Expression e in rule.expressions)
+                {
+                    Console.WriteLine("\t{0}", e.fieldName);
+                }
+            }
+            Console.WriteLine();
+        }
+
+        private void readData(string filename)
+        {
+            Console.WriteLine("Reading data from {0}", filename);
+
+            int lines = 0;
+
+            StreamReader sr = new StreamReader(filename);
+            while (!sr.EndOfStream && lines < 5)
+            {
+                string s = sr.ReadLine();
+                if (string.IsNullOrWhiteSpace(s)) continue;
+                Console.WriteLine(s);
+                lines++;
+            }
+            sr.Close();
+
+            Console.WriteLine("Read {0} lines", lines);
+        }
+
+        public void run()
+        {
+            DateTime startTime = DateTime.Now;
+            Console.WriteLine("Tagger started");
+
+            readRules("rules.txt");
+            printRules();
+
+            //readData("loan.csv");
+
+            TimeSpan elapsed = DateTime.Now.Subtract(startTime);
+            Console.WriteLine("Time elapsed: {0}", elapsed);
         }
     }
 }

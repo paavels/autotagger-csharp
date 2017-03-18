@@ -1,0 +1,12 @@
+﻿sdad
+	purpose	IS	car
+	purpose	EQUALS	car
+	purpose ONE OF car,asd
+	purpose	ALL EXCEPT	car
+	purpose	EXCLUDING	car
+
+fdsfd
+	fdf
+	fdsss
+	EVERYTHING EXCEPT
+
