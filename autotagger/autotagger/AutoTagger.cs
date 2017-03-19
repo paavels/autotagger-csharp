@@ -24,35 +24,8 @@ small_business
 vacation
 wedding
 
-term
- 36 months
-
-
-emp_length
-10+ years
-< 1 year
-10+ years
-10+ years
-1 year
-3 years
-8 years
-9 years
-4 years
-
-
-
-home_ownership
-
-RENT, OWN, MORTGAGE, OTHER.
 
 annual_inc
-
-loan_status
-
-Current
-Fully Paid
-Charged Off
-Default
 
      */
 
@@ -68,7 +41,7 @@ Default
     {
         public int fieldIdx = -1;
         public string fieldName = "";
-        public string value = null;
+        public string value;
         public List<string> values = new List<string>();
         public ExpressionType type = ExpressionType.Undefined;
     }
@@ -207,23 +180,23 @@ Default
             }
         }
 
-        private bool matchesRule(string[] row, Rule rule)
+        private int checkRule(string[] row, Rule rule)
         {
             foreach (Expression expression in rule.expressions)
             {
                 if (expression.type == ExpressionType.Inclusive)
                 {
-                    if (expression.value != null && row[expression.fieldIdx] != expression.value) return false;
-                    if (expression.values.All(value => row[expression.fieldIdx] != value)) return false;
+                    if (expression.value != null && row[expression.fieldIdx] != expression.value) return 0;
+                    if (expression.values.All(value => row[expression.fieldIdx] != value)) return 0;
                 }
                 else if(expression.type == ExpressionType.Exclusive)
                 {
-                    if (expression.value != null && row[expression.fieldIdx] == expression.value) return false;
-                    if (expression.values.Any(value => row[expression.fieldIdx] == value)) return false;
+                    if (expression.value != null && row[expression.fieldIdx] == expression.value) return 0;
+                    if (expression.values.Any(value => row[expression.fieldIdx] == value)) return 0;
                 }
             }
 
-            return true;
+            return 1;
         }
 
         private void printResults(List<int> results)
@@ -271,8 +244,12 @@ Default
 
                 for (int i = 0; i < rules.Count; i++)
                 {
-                    if (matchesRule(row, rules[i])) results[i]++;
+                    results[i] += checkRule(row, rules[i]);
                 }
+
+                //Task.Run()
+//                Task[] tasks = Task.Run()
+                //Task.WaitAll(tasks);
 
                 if (lines%100000 == 0) Console.Write("Processed {0} records\r", lines);
                 lines++;
