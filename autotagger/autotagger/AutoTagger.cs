@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace autotagger
 {
@@ -25,12 +27,6 @@ wedding
 term
  36 months
 
-
-grade
-A-G
-
-sub_grade
-A1-A5 B1-B5...
 
 emp_length
 10+ years
@@ -72,6 +68,8 @@ Default
     {
         public int fieldIdx = -1;
         public string fieldName = "";
+        public string value = null;
+        public List<string> values = new List<string>();
         public ExpressionType type = ExpressionType.Undefined;
     }
 
@@ -102,30 +100,36 @@ Default
             string fieldname = t[0];
             string keyword = t[1];
 
-            switch (keyword)
-            {
-                case "EQUALS":
-                    break;
-            }
-
-            Expression e = new Expression();
-            e.fieldName = t[0];
-
-            if (keyword == "IS" || keyword == "EQUALS" || keyword == "ONE OF")
+            if (keyword == "IS" || keyword == "EQUALS")
             {
                 parsedExpressions.Add(new Expression
                 {
                     fieldName = fieldname,
+                    value = t[2],
                     type = ExpressionType.Inclusive
                 });
             }
-            else if (keyword == "ALL EXCEPT" || keyword == "EXCLUDING")
+            else if (keyword == "IS ANY")
             {
                 parsedExpressions.Add(new Expression
                 {
                     fieldName = fieldname,
-                    type = ExpressionType.Exclusive
+                    values = t[2].Split(',').ToList(),
+                    type = ExpressionType.Inclusive
                 });
+            }
+            else if (keyword == "ALL EXCEPT" || keyword == "IS NOT")
+            {
+                string[] tt = t[2].Split(',');
+                for (int j = 0; j < tt.Length; j++)
+                {
+                    parsedExpressions.Add(new Expression
+                    {
+                        fieldName = fieldname,
+                        value = tt[j],
+                        type = ExpressionType.Exclusive
+                    });
+                }
             }
             else
             {
@@ -149,12 +153,14 @@ Default
 
                 if (s.Contains("\t") && def != null)
                 {
-                    List<Expression> e = parseExpression(s.Replace("\t", ""));
+                    List<Expression> e = parseExpression(s.Substring(1));
                     if (e != null) def.expressions.AddRange(e);
                 }
-
-                if (def != null && def.expressions.Any()) rules.Add(def);
-                def = new Rule { name = s };
+                else
+                {
+                    if (def != null && def.expressions.Any()) rules.Add(def);
+                    def = new Rule {name = s};
+                }
             }
 
             if (def != null && def.expressions.Any()) rules.Add(def);
@@ -176,29 +182,106 @@ Default
                 Console.WriteLine("{0}. {1}", i + 1, rule.name);
                 foreach (Expression e in rule.expressions)
                 {
-                    Console.WriteLine("\t{0}", e.fieldName);
+                    Console.WriteLine("\t{0}\t{1}\t{2}",
+                        e.fieldName,
+                        e.type,
+                        (e.value ?? string.Join(",", e.values)));
                 }
             }
             Console.WriteLine();
         }
 
-        private void readData(string filename)
+        private void searchFieldIndexes(string[] headerRow)
+        {
+            Hashtable h = new Hashtable();
+            for (int i = 0; i < headerRow.Length; i++) h[headerRow[i]] = i;
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                Rule rule = rules[i];
+
+                foreach (Expression e in rule.expressions)
+                {
+                    if (h[e.fieldName] != null) e.fieldIdx = (int) h[e.fieldName];
+                }
+            }
+        }
+
+        private bool matchesRule(string[] row, Rule rule)
+        {
+            foreach (Expression expression in rule.expressions)
+            {
+                if (expression.type == ExpressionType.Inclusive)
+                {
+                    if (expression.value != null && row[expression.fieldIdx] != expression.value) return false;
+                    if (expression.values.All(value => row[expression.fieldIdx] != value)) return false;
+                }
+                else if(expression.type == ExpressionType.Exclusive)
+                {
+                    if (expression.value != null && row[expression.fieldIdx] == expression.value) return false;
+                    if (expression.values.Any(value => row[expression.fieldIdx] == value)) return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void printResults(List<int> results)
+        {
+            Console.WriteLine("----------------------------------------");
+            Console.WriteLine("\t\tRESULTS");
+            Console.WriteLine("----------------------------------------");
+
+            for (int i = 0; i < rules.Count; i++)
+            {
+                Rule rule = rules[i];
+
+                Console.WriteLine("{0}. {1}\t\t{2}", i + 1, rule.name, results[i]);
+            }
+
+        }
+
+        private void parseFile(string filename)
         {
             Console.WriteLine("Reading data from {0}", filename);
 
             int lines = 0;
 
             StreamReader sr = new StreamReader(filename);
-            while (!sr.EndOfStream && lines < 5)
+
+            if (!sr.EndOfStream)
+            {
+                string s = sr.ReadLine();
+                if (string.IsNullOrWhiteSpace(s))
+                {
+                    Console.WriteLine("Failed to receive header row");
+                    return;
+                }
+                searchFieldIndexes(s.Split(','));
+            }
+
+            List<int> results = rules.Select(rule => 0).ToList();
+
+            while (!sr.EndOfStream)
             {
                 string s = sr.ReadLine();
                 if (string.IsNullOrWhiteSpace(s)) continue;
-                Console.WriteLine(s);
+
+                string[] row = s.Split(',');
+
+                for (int i = 0; i < rules.Count; i++)
+                {
+                    if (matchesRule(row, rules[i])) results[i]++;
+                }
+
+                if (lines%100000 == 0) Console.Write("Processed {0} records\r", lines);
                 lines++;
             }
             sr.Close();
 
-            Console.WriteLine("Read {0} lines", lines);
+            Console.WriteLine("Processed {0} records", lines);
+
+            printResults(results);
         }
 
         public void run()
@@ -209,7 +292,7 @@ Default
             readRules("rules.txt");
             printRules();
 
-            //readData("loan.csv");
+            parseFile("loan.csv");
 
             TimeSpan elapsed = DateTime.Now.Subtract(startTime);
             Console.WriteLine("Time elapsed: {0}", elapsed);
