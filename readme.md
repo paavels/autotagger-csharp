@@ -5,7 +5,7 @@ It is rather than *quick and dirty* implementation than complete and foolproof p
 ## Rules
 Categorization rules are stored in file rules.txt
 
-File example
+### File example
 ```
 US Northeast Garbage Renters
 	addr_state	IS ANY	PA,NY,NJ,VT,RI,NH,MA,ME,CT
@@ -13,7 +13,7 @@ US Northeast Garbage Renters
 	home_ownership	IS ANY	RENT,MORTGAGE
 ```
 
-File format
+### File format
 
 First row is name of rule
 
