@@ -42,7 +42,12 @@ Multiple values are separated by comma
 
 ## Performance
 
-1. Single thread / Array based run: 13.52sec
+1. C# / Single thread / Array based run: 13.52sec
+2. Python / Single thread / Array based run: 24.01
+3. Python / Single thread / String based run: 24.04sec
+
+C# probably has some issue with IS NOT, but it is definitely faster
+Python is slower, however more nice to work with. Array based run showed same performance as checking parts of string
 
 Test data used
 https://www.kaggle.com/wendykan/lending-club-loan-data
