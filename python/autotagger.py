@@ -15,7 +15,13 @@ import sys
 #        return 'Point: x=%6.3f  y=%6.3f  hypot=%6.3f' % (self.x, self.y, self.hypot)
 #
 
-Expression = namedtuple("Expression", "field value inclusive")
+class Expression:
+    """Expression"""
+    field = ''
+    fieldIdx = -1
+    value = None
+    inclusive = False
+
 Rule = namedtuple("Rule", "name expressions")
 
 def parse_expression(expression):
@@ -31,16 +37,24 @@ def parse_expression(expression):
 
     keyword = expr_parts[1]
 
+    expr = Expression()
+    expr.field = expr_parts[0]
+    #expr.value = "," + expr_parts[2] + ","
+    expr.value = expr_parts[2].split(",")
+
     if keyword == "IS" or keyword == "EQUALS" or keyword == "IS ANY":
-        return Expression(expr_parts[0], "," + expr_parts[2] + ",", True)
+        expr.inclusive = True
 
     elif keyword == "ALL EXCEPT" or keyword == "IS NOT":
-        return Expression(expr_parts[0], "," + expr_parts[2] + ",", False)
+        expr.inclusive = False
 
-    print("Invalid keyword for line '{0}'".format(expression))
-    print()
+    else:
+        print("Invalid keyword for line '{0}'".format(expression))
+        print()
 
-    return None
+        return None
+
+    return expr
 
 def read_rules(filename):
     """Reads rules from file"""
@@ -82,16 +96,30 @@ def check_rule(entry, rule):
     """Checks entry for rule"""
 
     for expr in rule.expressions:
-        val_to_check = "," + entry[expr.field] + ","
 
-        if expr.inclusive:
-            if val_to_check not in expr.value:
-                return False
-        else:
-            if val_to_check in expr.value:
-                return False
+        #match = "," + entry[expr.fieldIdx] + "," in expr.value
+        match = entry[expr.fieldIdx] in expr.value
+
+        if (not match and expr.inclusive) or (match and not expr.inclusive):
+            return False
 
     return True
+
+def search_field_indexes(header_row, rules):
+    """Applies fields index for faster lookup"""
+
+    for idx, val in enumerate(header_row):
+        for rule in rules:
+            for expr in rule.expressions:
+                if expr.field == val:
+                    expr.fieldIdx = idx
+
+    for rule in rules:
+        for expr in rule.expressions:
+            if expr.fieldIdx == -1:
+                print("Rule {0} failed to find index for {1}".format(rule.name, expr.field))
+
+    return
 
 def parse_file(filename, rules):
     """Parses incoming file and tags the rows according rules"""
@@ -103,26 +131,33 @@ def parse_file(filename, rules):
         results[rule.name] = 0
 
     with open(filename, "r", encoding="utf-8-sig") as file_pointer:
-        reader = csv.DictReader(file_pointer)
+
+        header_row = file_pointer.readline()
+
+        if not header_row:
+            print("Failed to receive header row")
+            return
+
+        search_field_indexes(header_row.split(","), rules)
+
         lines = 0
 
-        for entry in reader:
+        for row in file_pointer:
+            entry = row.split(",")
+
             for rule in rules:
-                rule_passed = check_rule(entry, rule)
-                results[rule.name] = results[rule.name] + 1 if rule_passed else 0
+                if check_rule(entry, rule):
+                    results[rule.name] += 1
 
             if lines % 100000 == 0:
-                print("Processed {0} records\r".format(lines))
+                print("Processed {0} records".format(lines), end="\r")
             lines += 1
 
-#            print(entry)
-#            return results
-
-    print("Processed {0} records\r".format(lines))
+    print("Processed {0} records".format(lines))
 
     return results
 
-def print_results(results):
+def print_results(rules, results):
     """Prints results on screen"""
 
     print("----------------------------------------")
@@ -130,9 +165,9 @@ def print_results(results):
     print("----------------------------------------")
 
     i = 0
-    for key, value in results.items():
+    for rule in rules:
         i += 1
-        print("{0}. {1}\t\t{2}".format(i, key, value))
+        print("{0: >3}. {1: <48} {2: >8}".format(i, rule.name, results[rule.name]))
 
     return
 
@@ -147,7 +182,7 @@ def print_rules(rules):
         print(rule.name)
         for expr in rule.expressions:
             mode = "INCLUSIVE" if expr.inclusive else "EXCLUSIVE"
-            print("\t{0}\t{1}\t{2}".format(expr.field, mode, expr.value))
+            print("\t{0: <16}\t{1: <10}\t{2}".format(expr.field, mode, expr.value))
         print()
 
     print("{0} rules".format(len(rules)))
@@ -161,13 +196,15 @@ def main(argv):
     print("Tagger started")
 
     rules = read_rules("rules.txt")
-#    print_rules(rules)
+    print_rules(rules)
 
     results = parse_file("loan.csv", rules)
-    print_results(results)
+    print_results(rules, results)
 
     elapsed = time.process_time() - start_time
     print("Time elapsed: {0}".format(elapsed))
 
 if __name__ == "__main__":
     main(sys.argv)
+
+# dumb execution string = 24.04

@@ -1,0 +1,11 @@
+﻿US West
+	addr_state	IS ANY	AZ,WA,OR,HI,CA,AK,WY,UT,NM,NV,MT,ID,CO
+
+US South
+	addr_state	IS ANY	AR,LA,OK,TX,TN,MS,KY,AL,WV,DC,VA,SC,NC,MD,GA,FL,DE
+
+US Midwest
+	addr_state	IS ANY	SD,ND,NE,MO,MN,KS,IA,WI,OH,MI,IN,IL
+
+US Northeast
+	addr_state	IS ANY	PA,NY,NJ,VT,RI,NH,MA,ME,CT
